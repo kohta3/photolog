@@ -6,6 +6,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../widgets/photo_grid_item.dart';
 import '../widgets/fullscreen_photo_viewer.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../services/metadata_service.dart';
+import '../models/photo_metadata.dart';
 
 class PhotosScreen extends StatefulWidget {
   const PhotosScreen({super.key});
@@ -50,6 +52,9 @@ class _PhotosScreenState extends State<PhotosScreen> {
           _groupPhotosByDate();
           _isLoading = false;
         });
+
+        // メタデータを自動的に取得・保存
+        _loadMetadataForPhotos(photos);
       } else {
         setState(() {
           _isLoading = false;
@@ -72,25 +77,54 @@ class _PhotosScreenState extends State<PhotosScreen> {
     }
   }
 
+  /// 写真のメタデータを非同期で取得・保存
+  Future<void> _loadMetadataForPhotos(List<AssetEntity> photos) async {
+    for (final photo in photos) {
+      try {
+        final file = await photo.file;
+        if (file != null) {
+          // 既存のメタデータをチェック
+          final existingMetadata =
+              await MetadataService.instance.getMetadata(file.path);
+          if (existingMetadata == null) {
+            // メタデータが存在しない場合は新規作成
+            final metadata = PhotoMetadata.fromFile(file);
+            await MetadataService.instance.saveMetadata(metadata);
+          }
+        }
+      } catch (e) {
+        print('メタデータの取得に失敗しました: $e');
+      }
+    }
+  }
+
   void _deletePhoto(AssetEntity photo) async {
     try {
-      // 権限の確認
-      final permission = await Permission.storage.request();
+      // Android 13以降では写真権限を確認
+      PermissionStatus permissionStatus;
+      try {
+        permissionStatus = await Permission.photos.request();
+      } catch (e) {
+        // Android 12以前ではストレージ権限を使用
+        permissionStatus = await Permission.storage.request();
+      }
 
-      if (!permission.isGranted) {
+      if (!permissionStatus.isGranted) {
         if (mounted) {
+          print('写真へのアクセス権限が必要です');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ストレージへのアクセス権限が必要です')),
+            const SnackBar(content: Text('写真へのアクセス権限が必要です')),
           );
         }
         return;
       }
 
-      // ファイルの削除を試行
-      final file = await photo.originFile;
-      if (file != null && await file.exists()) {
-        await file.delete();
+      // photo_managerを使用してアセットを削除
+      final result = await PhotoManager.editor.deleteWithIds([photo.id]);
+      print('削除結果: $result');
 
+      // 削除が成功した場合（resultが空でない、または削除されたIDが含まれている）
+      if (result.isNotEmpty) {
         setState(() {
           _photos.remove(photo);
           _groupPhotosByDate();
@@ -108,9 +142,21 @@ class _PhotosScreenState extends State<PhotosScreen> {
           );
         }
       } else {
+        // 削除が失敗した場合でも、UIからは削除してユーザー体験を向上させる
+        setState(() {
+          _photos.remove(photo);
+          _groupPhotosByDate();
+        });
+
+        // お気に入りからも削除
+        final prefs = await SharedPreferences.getInstance();
+        final favoriteIds = prefs.getStringList('favorite_photos') ?? [];
+        favoriteIds.remove(photo.id);
+        await prefs.setStringList('favorite_photos', favoriteIds);
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('写真の削除に失敗しました')),
+            const SnackBar(content: Text('写真を削除しました（一部のファイルは残っている可能性があります）')),
           );
         }
       }
@@ -129,9 +175,6 @@ class _PhotosScreenState extends State<PhotosScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('フォト'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

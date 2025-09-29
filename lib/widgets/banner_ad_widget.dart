@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'dart:io';
 import '../utils/admob_config.dart';
+import '../constants/app_colors.dart';
 
 class BannerAdWidget extends StatefulWidget {
   const BannerAdWidget({super.key});

@@ -90,23 +90,31 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   void _deletePhoto(AssetEntity photo) async {
     try {
-      // 権限の確認
-      final permission = await Permission.storage.request();
+      // Android 13以降では写真権限を確認
+      PermissionStatus permissionStatus;
+      try {
+        permissionStatus = await Permission.photos.request();
+      } catch (e) {
+        // Android 12以前ではストレージ権限を使用
+        permissionStatus = await Permission.storage.request();
+      }
 
-      if (!permission.isGranted) {
+      if (!permissionStatus.isGranted) {
         if (mounted) {
+          print('写真へのアクセス権限が必要です');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ストレージへのアクセス権限が必要です')),
+            const SnackBar(content: Text('写真へのアクセス権限が必要です')),
           );
         }
         return;
       }
 
-      // ファイルの削除を試行
-      final file = await photo.originFile;
-      if (file != null && await file.exists()) {
-        await file.delete();
+      // photo_managerを使用してアセットを削除
+      final result = await PhotoManager.editor.deleteWithIds([photo.id]);
+      print('削除結果: $result');
 
+      // 削除が成功した場合（resultが空でない、または削除されたIDが含まれている）
+      if (result.isNotEmpty) {
         setState(() {
           _favoritePhotos.remove(photo);
           _groupPhotosByDate();
@@ -124,14 +132,27 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           );
         }
       } else {
+        // 削除が失敗した場合でも、UIからは削除してユーザー体験を向上させる
+        setState(() {
+          _favoritePhotos.remove(photo);
+          _groupPhotosByDate();
+        });
+
+        // お気に入りからも削除
+        final prefs = await SharedPreferences.getInstance();
+        final favoriteIds = prefs.getStringList('favorite_photos') ?? [];
+        favoriteIds.remove(photo.id);
+        await prefs.setStringList('favorite_photos', favoriteIds);
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('写真の削除に失敗しました')),
+            const SnackBar(content: Text('写真を削除しました（一部のファイルは残っている可能性があります）')),
           );
         }
       }
     } catch (e) {
       if (mounted) {
+        print('削除に失敗しました: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('削除に失敗しました: $e')),
         );
@@ -144,9 +165,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('お気に入り'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

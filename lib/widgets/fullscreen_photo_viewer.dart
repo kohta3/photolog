@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:typed_data';
+import '../models/photo_metadata.dart';
+import '../services/metadata_service.dart';
+import '../widgets/metadata_display_widget.dart';
 
 class FullscreenPhotoViewer extends StatefulWidget {
   final List<AssetEntity> photos;
@@ -24,12 +26,15 @@ class _FullscreenPhotoViewerState extends State<FullscreenPhotoViewer> {
   late PageController _pageController;
   late int _currentIndex;
   bool _showControls = true;
+  bool _showMetadata = false;
+  PhotoMetadata? _currentMetadata;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
+    _loadCurrentMetadata();
   }
 
   @override
@@ -42,6 +47,23 @@ class _FullscreenPhotoViewerState extends State<FullscreenPhotoViewer> {
     setState(() {
       _showControls = !_showControls;
     });
+  }
+
+  void _toggleMetadata() {
+    setState(() {
+      _showMetadata = !_showMetadata;
+    });
+  }
+
+  Future<void> _loadCurrentMetadata() async {
+    final photo = widget.photos[_currentIndex];
+    final file = await photo.file;
+    if (file != null) {
+      final metadata = await MetadataService.instance.getMetadata(file.path);
+      setState(() {
+        _currentMetadata = metadata;
+      });
+    }
   }
 
   void _sharePhoto() async {
@@ -89,6 +111,7 @@ class _FullscreenPhotoViewerState extends State<FullscreenPhotoViewer> {
                 setState(() {
                   _currentIndex = index;
                 });
+                _loadCurrentMetadata();
               },
               itemCount: widget.photos.length,
               itemBuilder: (context, index) {
@@ -156,6 +179,14 @@ class _FullscreenPhotoViewerState extends State<FullscreenPhotoViewer> {
                           ),
                         ),
                         IconButton(
+                          onPressed: _toggleMetadata,
+                          icon: Icon(
+                            _showMetadata ? Icons.info : Icons.info_outline,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                        IconButton(
                           onPressed: _deletePhoto,
                           icon: const Icon(
                             Icons.delete,
@@ -164,6 +195,43 @@ class _FullscreenPhotoViewerState extends State<FullscreenPhotoViewer> {
                           ),
                         ),
                       ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (_showMetadata && _currentMetadata != null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.4,
+                decoration: const BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white54,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: MetadataDisplayWidget(
+                          metadata: _currentMetadata!,
+                          isExpanded: true,
+                        ),
+                      ),
                     ),
                   ],
                 ),

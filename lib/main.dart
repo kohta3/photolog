@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'dart:io';
 import 'screens/photos_screen.dart';
 import 'screens/videos_screen.dart';
 import 'screens/folders_screen.dart';
 import 'screens/favorites_screen.dart';
+import 'screens/metadata_screen.dart';
+import 'constants/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,8 +44,38 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       title: 'Photo Log',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primaryColor,
+          brightness: Brightness.light,
+        ),
+        primaryColor: AppColors.primaryColor,
+        scaffoldBackgroundColor: AppColors.backgroundColor,
         useMaterial3: true,
+        appBarTheme: AppBarTheme(
+          backgroundColor: AppColors.primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+          toolbarTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+          iconTheme: const IconThemeData(
+            color: Colors.white,
+            size: 24,
+          ),
+          systemOverlayStyle: SystemUiOverlayStyle.light,
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          selectedItemColor: AppColors.primaryColor,
+          unselectedItemColor: AppColors.textSecondary,
+          backgroundColor: AppColors.surfaceColor,
+        ),
       ),
       home: const MainScreen(),
     );
@@ -65,6 +97,7 @@ class _MainScreenState extends State<MainScreen> {
     const VideosScreen(),
     const FoldersScreen(),
     const FavoritesScreen(),
+    const MetadataScreen(),
   ];
 
   @override
@@ -118,6 +151,10 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite),
             label: 'お気に入り',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.info_outline),
+            label: '詳細',
           ),
         ],
       ),
