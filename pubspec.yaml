@@ -1,0 +1,59 @@
+name: photo_log
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  photo_manager: ^3.7.1
+  cached_network_image: ^3.4.1
+  video_player: ^2.10.0
+  path_provider: ^2.1.5
+  permission_handler: ^12.0.1
+  image_picker: ^1.2.0
+  share_plus: ^12.0.0
+  flutter_staggered_grid_view: ^0.7.0
+  intl: ^0.19.0
+  shared_preferences: ^2.5.3
+  # Firebase packages
+  firebase_core: ^3.6.0
+  firebase_analytics: ^11.3.3
+  firebase_crashlytics: ^4.1.3
+  google_mobile_ads: ^5.1.0
+  # Environment variables
+  flutter_dotenv: ^5.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/.env.dev
+    - assets/.env.prod
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "asset/img/icon.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "asset/img/icon.png"
+    background_color: "#hexcode"
+    theme_color: "#hexcode"
+  windows:
+    generate: true
+    image_path: "asset/img/icon.png"
+    min_sdk_android: 21
+  macos:
+    generate: true
+    image_path: "asset/img/icon.png"

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "440932886765",
+    "project_id": "photolog-5db1c",
+    "storage_bucket": "photolog-5db1c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:440932886765:android:5cdec35dfc57709dc184e4",
+        "android_client_info": {
+          "package_name": "com.android.photolog"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAETDULDwmQWD1KNj-9fB4Q70H3kVdj-Kk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
