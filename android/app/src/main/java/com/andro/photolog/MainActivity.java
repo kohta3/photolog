@@ -1,4 +1,4 @@
-package com.android.photolog;
+package com.andro.photolog;
 
 import io.flutter.embedding.android.FlutterActivity;
 
