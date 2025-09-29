@@ -8,7 +8,7 @@
     <!-- Android 13+ での写真削除に必要な権限 -->
     <uses-permission android:name="android.permission.DELETE_PHOTOS" />
     <application
-        android:label="photo_log"
+        android:label="フォトログ"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:enableOnBackInvokedCallback="true">
