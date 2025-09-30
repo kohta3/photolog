@@ -6,11 +6,6 @@ workflows:
       flutter: 3.27.0
       xcode: 16.2
       cocoapods: default
-      vars:
-        # CodemagicのUIで設定したSecretsを環境変数として読み込む
-        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
-        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        APP_STORE_CONNECT_PRIVATE_KEY: $APP_STORE_CONNECT_PRIVATE_KEY
     # --- ▲ ここまで ▲ ---
     scripts:
       - flutter packages pub get
