@@ -19,7 +19,10 @@ workflows:
     # App Store Connectへの公開設定
     publishing:
       app_store_connect:
-        auth:
-          api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-          key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-          issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        # "auth:" ブロックを削除し、キーを直接ここに記述します
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        
+        # TestFlightに自動で提出する
+        submit_to_testflight: true
