@@ -6,6 +6,9 @@ workflows:
       flutter: 3.27.0
       xcode: 16.2
       cocoapods: default
+      groups:
+        - PHOTOLOG
+
     # --- ▲ ここまで ▲ ---
     scripts:
       - flutter packages pub get
