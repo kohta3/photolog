@@ -1,28 +1,22 @@
 workflows:
   ios-app-store-release:
     name: iOS App Store Release
-    # 実行環境の指定
     environment:
       flutter: 3.27.0
       xcode: 16.2
       cocoapods: default
-    # ビルド前のセットアップスクリプト
     scripts:
       - flutter packages pub get
-      # iOSの依存関係をインストール
       - find . -name "Podfile" -execdir pod install \;
-      # App Store用のipaファイルをビルド
+      - keychain initialize
+      - app-store-connect fetch-signing-files $(xcode-project detect-bundle-id) --type IOS_APP_STORE --create
+      - xcode-project use-profiles
       - flutter build ipa --release --export-options-plist=$CM_EXPORT_OPTIONS_PATH
-    # ビルド成果物（ipaファイル）の指定
     artifacts:
       - build/ios/ipa/*.ipa
-    # App Store Connectへの公開設定
     publishing:
       app_store_connect:
-        # "auth:" ブロックを削除し、キーを直接ここに記述します
         api_key: $APP_STORE_CONNECT_PRIVATE_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        
-        # TestFlightに自動で提出する
         submit_to_testflight: true
