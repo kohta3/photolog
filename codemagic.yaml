@@ -9,7 +9,7 @@ workflows:
       - flutter packages pub get
       - find . -name "Podfile" -execdir pod install \;
       - keychain initialize
-      - app-store-connect fetch-signing-files $(xcode-project detect-bundle-id) --type IOS_APP_STORE --create
+      - app-store-connect fetch-signing-files com.ios.photolog --type IOS_APP_STORE --create
       - xcode-project use-profiles
       - flutter build ipa --release --export-options-plist=$CM_EXPORT_OPTIONS_PATH
     artifacts:
