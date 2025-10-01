@@ -28,10 +28,18 @@ void main() async {
   }
 
   // Firebase初期化
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    print('Warning: Firebase initialization failed: $e');
+  }
 
   // AdMob初期化
-  await MobileAds.instance.initialize();
+  try {
+    await MobileAds.instance.initialize();
+  } catch (e) {
+    print('Warning: AdMob initialization failed: $e');
+  }
 
   runApp(const MainApp());
 }
