@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../widgets/video_grid_item.dart';
 import '../widgets/fullscreen_video_viewer.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../services/permission_service.dart';
 
 class VideosScreen extends StatefulWidget {
   const VideosScreen({super.key});
@@ -18,11 +19,122 @@ class _VideosScreenState extends State<VideosScreen> {
   Map<String, List<AssetEntity>> _videosByDate = {};
   bool _isLoading = true;
   String? _error;
+  final PermissionService _permissionService = PermissionService.instance;
+
+  // 選択モード関連
+  bool _isSelectionMode = false;
+  Set<String> _selectedVideos = {};
 
   @override
   void initState() {
     super.initState();
-    _loadVideos();
+    _permissionService.addListener(_onPermissionChanged);
+    _checkPermissionAndLoadVideos();
+  }
+
+  @override
+  void dispose() {
+    _permissionService.removeListener(_onPermissionChanged);
+    super.dispose();
+  }
+
+  void _onPermissionChanged() {
+    if (_permissionService.hasPermission && mounted) {
+      _loadVideos();
+    }
+  }
+
+  Future<void> _checkPermissionAndLoadVideos() async {
+    if (_permissionService.hasPermission) {
+      _loadVideos();
+    } else {
+      setState(() {
+        _isLoading = false;
+        _error = '動画へのアクセス権限が必要です';
+      });
+    }
+  }
+
+  // 選択モードの制御
+  void _toggleSelectionMode() {
+    if (!mounted) return;
+
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedVideos.clear();
+      }
+    });
+  }
+
+  void _toggleVideoSelection(String videoId) {
+    if (!mounted) return;
+
+    setState(() {
+      if (_selectedVideos.contains(videoId)) {
+        _selectedVideos.remove(videoId);
+      } else {
+        _selectedVideos.add(videoId);
+      }
+    });
+  }
+
+  // 一括削除機能
+  Future<void> _deleteSelectedVideos() async {
+    if (_selectedVideos.isEmpty) return;
+
+    try {
+      // Android 13以降では写真権限を確認
+      PermissionStatus permissionStatus;
+      try {
+        permissionStatus = await Permission.photos.request();
+      } catch (e) {
+        // Android 12以前ではストレージ権限を使用
+        permissionStatus = await Permission.storage.request();
+      }
+
+      if (!permissionStatus.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('動画へのアクセス権限が必要です')),
+          );
+        }
+        return;
+      }
+
+      // 選択された動画を削除
+      final selectedVideoIds = _selectedVideos.toList();
+      final result = await PhotoManager.editor.deleteWithIds(selectedVideoIds);
+      print('一括削除結果: $result');
+
+      if (result.isNotEmpty) {
+        setState(() {
+          // 削除された動画をリストから除外
+          _videos.removeWhere((video) => _selectedVideos.contains(video.id));
+          _groupVideosByDate();
+          _selectedVideos.clear();
+          _isSelectionMode = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${result.length}本の動画を削除しました')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('削除に失敗しました')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('削除に失敗しました: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _loadVideos() async {
@@ -135,13 +247,36 @@ class _VideosScreenState extends State<VideosScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ムービー'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadVideos,
-          ),
-        ],
+        title: _isSelectionMode
+            ? Text('${_selectedVideos.length}件選択中')
+            : const Text('ムービー'),
+        leading: _isSelectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _toggleSelectionMode,
+              )
+            : null,
+        actions: _isSelectionMode
+            ? [
+                if (_selectedVideos.isNotEmpty) ...[
+                  IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: _selectedVideos.isNotEmpty
+                        ? _deleteSelectedVideos
+                        : null,
+                  ),
+                ],
+              ]
+            : [
+                IconButton(
+                  icon: const Icon(Icons.checklist),
+                  onPressed: _toggleSelectionMode,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loadVideos,
+                ),
+              ],
       ),
       body: Column(
         children: [
@@ -176,12 +311,21 @@ class _VideosScreenState extends State<VideosScreen> {
                 fontSize: 16,
                 color: Colors.grey[600],
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadVideos,
               child: const Text('再試行'),
             ),
+            if (_error!.contains('権限')) const SizedBox(height: 8),
+            if (_error!.contains('権限'))
+              ElevatedButton(
+                onPressed: () async {
+                  await _permissionService.checkPermission();
+                },
+                child: const Text('権限を再確認'),
+              ),
           ],
         ),
       );
@@ -248,6 +392,10 @@ class _VideosScreenState extends State<VideosScreen> {
                     video: video,
                     onTap: () => _showFullscreenVideo(videos, index),
                     onDelete: () => _deleteVideo(video),
+                    onLongPress: () => _toggleSelectionMode(),
+                    isSelectionMode: _isSelectionMode,
+                    isSelected: _selectedVideos.contains(video.id),
+                    onSelectionToggle: () => _toggleVideoSelection(video.id),
                   );
                 },
               ),

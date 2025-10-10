@@ -8,9 +8,12 @@ class AdMobConfig {
   static String get androidNativeAdId =>
       dotenv.env['ADMOB_ANDROID_NATIVE'] ?? '';
   static String get androidBannerAdId =>
-      dotenv.env['ADMOB_ANDROID_BUNNER'] ?? '';
+      dotenv.env['ADMOB_ANDROID_BANNER'] ??
+      dotenv.env['ADMOB_ANDROID_BUNNER'] ??
+      '';
   static String get iosNativeAdId => dotenv.env['ADMOB_IOS_NATIVE'] ?? '';
-  static String get iosBannerAdId => dotenv.env['ADMOB_IOS_BUNNER'] ?? '';
+  static String get iosBannerAdId =>
+      dotenv.env['ADMOB_IOS_BANNER'] ?? dotenv.env['ADMOB_IOS_BUNNER'] ?? '';
 
   // プラットフォーム別のアプリID
   static String get appId {

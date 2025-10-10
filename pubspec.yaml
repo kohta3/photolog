@@ -1,7 +1,7 @@
 name: photo_log
 description: "A new Flutter project."
 publish_to: 'none'
-version: 0.1.0
+version: 0.1.1
 
 environment:
   sdk: ^3.6.0
@@ -44,6 +44,8 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "asset/img/icon.png"
+  ios_image_path: "asset/img/icon_ios_1024.png"
+  ios_launch_image_path: "asset/img/launch_image.png"
   min_sdk_android: 21
   web:
     generate: true

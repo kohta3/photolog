@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../widgets/photo_grid_item.dart';
 import '../widgets/fullscreen_photo_viewer.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../services/permission_service.dart';
 
 class FoldersScreen extends StatefulWidget {
   const FoldersScreen({super.key});
@@ -20,11 +21,131 @@ class _FoldersScreenState extends State<FoldersScreen> {
   AssetPathEntity? _selectedFolder;
   List<AssetEntity> _folderPhotos = [];
   Map<String, List<AssetEntity>> _photosByDate = {};
+  final PermissionService _permissionService = PermissionService.instance;
+
+  // 選択モード関連
+  bool _isSelectionMode = false;
+  Set<String> _selectedPhotos = {};
 
   @override
   void initState() {
     super.initState();
-    _loadFolders();
+    _permissionService.addListener(_onPermissionChanged);
+    _checkPermissionAndLoadFolders();
+  }
+
+  @override
+  void dispose() {
+    _permissionService.removeListener(_onPermissionChanged);
+    super.dispose();
+  }
+
+  void _onPermissionChanged() {
+    if (_permissionService.hasPermission && mounted) {
+      _loadFolders();
+    }
+  }
+
+  Future<void> _checkPermissionAndLoadFolders() async {
+    if (_permissionService.hasPermission) {
+      _loadFolders();
+    } else {
+      setState(() {
+        _isLoading = false;
+        _error = 'フォルダへのアクセス権限が必要です';
+      });
+    }
+  }
+
+  // 選択モードの制御
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedPhotos.clear();
+      }
+    });
+  }
+
+  void _togglePhotoSelection(String photoId) {
+    setState(() {
+      if (_selectedPhotos.contains(photoId)) {
+        _selectedPhotos.remove(photoId);
+      } else {
+        _selectedPhotos.add(photoId);
+      }
+    });
+  }
+
+  void _selectAllPhotos() {
+    setState(() {
+      _selectedPhotos = _folderPhotos.map((photo) => photo.id).toSet();
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedPhotos.clear();
+    });
+  }
+
+  // 一括削除機能
+  Future<void> _deleteSelectedPhotos() async {
+    if (_selectedPhotos.isEmpty) return;
+
+    try {
+      // Android 13以降では写真権限を確認
+      PermissionStatus permissionStatus;
+      try {
+        permissionStatus = await Permission.photos.request();
+      } catch (e) {
+        // Android 12以前ではストレージ権限を使用
+        permissionStatus = await Permission.storage.request();
+      }
+
+      if (!permissionStatus.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('写真へのアクセス権限が必要です')),
+          );
+        }
+        return;
+      }
+
+      // 選択された写真を削除
+      final selectedPhotoIds = _selectedPhotos.toList();
+      final result = await PhotoManager.editor.deleteWithIds(selectedPhotoIds);
+      print('一括削除結果: $result');
+
+      if (result.isNotEmpty) {
+        setState(() {
+          // 削除された写真をリストから除外
+          _folderPhotos
+              .removeWhere((photo) => _selectedPhotos.contains(photo.id));
+          _groupPhotosByDate();
+          _selectedPhotos.clear();
+          _isSelectionMode = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${result.length}枚の写真を削除しました')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('削除に失敗しました')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('削除に失敗しました: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _loadFolders() async {
@@ -157,21 +278,50 @@ class _FoldersScreenState extends State<FoldersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_selectedFolder?.name ?? 'フォルダ'),
-        leading: _selectedFolder != null
+        title: _isSelectionMode
+            ? Text('${_selectedPhotos.length}件選択中')
+            : Text(_selectedFolder?.name ?? 'フォルダ'),
+        leading: _isSelectionMode
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: _goBack,
+                icon: const Icon(Icons.close),
+                onPressed: _toggleSelectionMode,
               )
-            : null,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _selectedFolder != null
-                ? () => _loadFolderPhotos(_selectedFolder!)
-                : _loadFolders,
-          ),
-        ],
+            : _selectedFolder != null
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: _goBack,
+                  )
+                : null,
+        actions: _isSelectionMode
+            ? [
+                if (_selectedPhotos.isNotEmpty) ...[
+                  IconButton(
+                    icon: const Icon(Icons.select_all),
+                    onPressed: _selectedPhotos.length == _folderPhotos.length
+                        ? _clearSelection
+                        : _selectAllPhotos,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: _selectedPhotos.isNotEmpty
+                        ? _deleteSelectedPhotos
+                        : null,
+                  ),
+                ],
+              ]
+            : [
+                IconButton(
+                  icon: const Icon(Icons.checklist),
+                  onPressed:
+                      _selectedFolder != null ? _toggleSelectionMode : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _selectedFolder != null
+                      ? () => _loadFolderPhotos(_selectedFolder!)
+                      : _loadFolders,
+                ),
+              ],
       ),
       body: Column(
         children: [
@@ -206,6 +356,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
                 fontSize: 16,
                 color: Colors.grey[600],
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -214,6 +365,14 @@ class _FoldersScreenState extends State<FoldersScreen> {
                   : _loadFolders,
               child: const Text('再試行'),
             ),
+            if (_error!.contains('権限')) const SizedBox(height: 8),
+            if (_error!.contains('権限'))
+              ElevatedButton(
+                onPressed: () async {
+                  await _permissionService.checkPermission();
+                },
+                child: const Text('権限を再確認'),
+              ),
           ],
         ),
       );
@@ -333,6 +492,10 @@ class _FoldersScreenState extends State<FoldersScreen> {
                     photo: photo,
                     onTap: () => _showFullscreenPhoto(photos, index),
                     onDelete: () => _deletePhoto(photo),
+                    onLongPress: () => _toggleSelectionMode(),
+                    isSelectionMode: _isSelectionMode,
+                    isSelected: _selectedPhotos.contains(photo.id),
+                    onSelectionToggle: () => _togglePhotoSelection(photo.id),
                   );
                 },
               ),

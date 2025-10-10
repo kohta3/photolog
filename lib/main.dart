@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:photo_manager/photo_manager.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -8,8 +7,8 @@ import 'screens/photos_screen.dart';
 import 'screens/videos_screen.dart';
 import 'screens/folders_screen.dart';
 import 'screens/favorites_screen.dart';
-import 'screens/metadata_screen.dart';
 import 'constants/app_colors.dart';
+import 'services/permission_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +50,7 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Photo Log',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.primaryColor,
@@ -99,32 +99,50 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  final PermissionService _permissionService = PermissionService.instance;
 
   final List<Widget> _screens = [
     const PhotosScreen(),
     const VideosScreen(),
     const FoldersScreen(),
     const FavoritesScreen(),
-    const MetadataScreen(),
   ];
 
   @override
   void initState() {
     super.initState();
     _requestPermissions();
+    _permissionService.addListener(_onPermissionChanged);
+  }
+
+  @override
+  void dispose() {
+    _permissionService.removeListener(_onPermissionChanged);
+    super.dispose();
+  }
+
+  void _onPermissionChanged() {
+    if (_permissionService.hasPermission && mounted) {
+      // 権限が許可された場合、現在の画面にデータ読み込みを通知
+      _notifyCurrentScreenToRefresh();
+    }
+  }
+
+  void _notifyCurrentScreenToRefresh() {
+    // 現在の画面にリフレッシュを通知するためのキーを使用
+    setState(() {
+      // 画面の再構築をトリガーしてデータ読み込みを促す
+    });
   }
 
   Future<void> _requestPermissions() async {
-    final PermissionState state = await PhotoManager.requestPermissionExtend();
-    if (!state.isAuth) {
-      // 権限が拒否された場合の処理
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('写真へのアクセス権限が必要です'),
-          ),
-        );
-      }
+    final hasPermission = await _permissionService.checkPermission();
+    if (!hasPermission && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('写真へのアクセス権限が必要です'),
+        ),
+      );
     }
   }
 
@@ -159,10 +177,6 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite),
             label: 'お気に入り',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.info_outline),
-            label: '詳細',
           ),
         ],
       ),
